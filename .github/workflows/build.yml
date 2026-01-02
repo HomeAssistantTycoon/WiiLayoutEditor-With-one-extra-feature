@@ -1,7 +1,7 @@
 name: Build WiiLayoutEditor
 
 on:
-  workflow_dispatch:   # manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,46 +11,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Detect solution configurations
-        id: detect_config
-        shell: powershell
-        run: |
-          $sln = "WiiLayoutEditor.sln"
-          Write-Host "Reading solution file..."
-          $slnContent = Get-Content $sln
-          
-          $configurations = @()
-          $platforms = @()
-          
-          foreach ($line in $slnContent) {
-              if ($line -match "GlobalSection\(SolutionConfigurationPlatforms\)") { $inConfig = $true }
-              if ($inConfig -and $line -match "EndGlobalSection") { $inConfig = $false }
-              if ($inConfig -and $line -match "^\s*(\S+)\|(\S+)\s*=") {
-                  $configurations += $matches[1]
-                  $platforms += $matches[2]
-              }
-          }
-
-          # pick the first valid configuration/platform
-          $Config = $configurations[0]
-          $Platform = $platforms[0]
-
-          Write-Host "Detected configuration: $Config | $Platform"
-          echo "config=$Config" >> $GITHUB_ENV
-          echo "platform=$Platform" >> $GITHUB_ENV
-
       - name: Build solution
         shell: powershell
         run: |
           $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-          Write-Host "Building ${{ env.config }} | ${{ env.platform }}..."
-          & $msbuild "WiiLayoutEditor.sln" /nologo /t:Build /p:Configuration=${{ env.config }} /p:Platform="${{ env.platform }}"
+          Write-Host "Building WiiLayoutEditor with default configuration..."
+          # Use Debug | x86 (most likely valid)
+          & $msbuild "WiiLayoutEditor.sln" /nologo /t:Build /p:Configuration=Debug /p:Platform=x86
 
       - name: Collect built executable
         shell: powershell
         run: |
-          # adjust path if output differs
-          $exe = "WiiLayoutEditor\bin\${{ env.config }}\WiiLayoutEditor.exe"
+          $exe = "WiiLayoutEditor\bin\Debug\WiiLayoutEditor.exe"
           if (Test-Path $exe) {
               Write-Host "Found built executable at $exe"
               Copy-Item $exe -Destination "$env:GITHUB_WORKSPACE/WiiLayoutEditor.exe"
@@ -64,6 +36,7 @@ jobs:
         with:
           name: WiiLayoutEditor
           path: WiiLayoutEditor.exe
+
 
 
 
