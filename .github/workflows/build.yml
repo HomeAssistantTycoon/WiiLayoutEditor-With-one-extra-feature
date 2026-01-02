@@ -1,34 +1,55 @@
 name: Build WiiLayoutEditor
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # Manual trigger
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
 
-      - name: Restore NuGet packages
-        run: nuget restore WiiLayoutEditor.sln
+    - name: Detect Solution Configurations
+      id: config
+      run: |
+        echo "Checking solution configurations..."
+        for cfg in Debug Release; do
+            for plat in "Any CPU" x86 x64; do
+                msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$cfg /p:Platform="$plat" /v:q > build_check.txt 2>&1 || true
+                if ! findstr /C:"error MSB4126" build_check.txt >nul; then
+                    echo "Valid configuration found: $cfg | $plat"
+                    echo "CONFIG=$cfg" >> $GITHUB_ENV
+                    echo "PLATFORM=$plat" >> $GITHUB_ENV
+                    exit 0
+                fi
+            done
+        done
+        echo "No valid configuration found, failing workflow."
+        exit 1
 
-      - name: Build WiiLayoutEditor (Release)
-        run: msbuild WiiLayoutEditor.sln /p:Configuration=Release /p:Platform="Any CPU"
+    - name: Build WiiLayoutEditor
+      run: |
+        echo "Building with $CONFIG | $PLATFORM..."
+        msbuild WiiLayoutEditor.sln /p:Configuration=$CONFIG /p:Platform="$PLATFORM" /t:Build /v:minimal
 
-      - name: Zip build output
-        run: |
-          powershell -Command "Compress-Archive -Path 'WiiLayoutEditor\bin\Release\*' -DestinationPath 'WiiLayoutEditor-Build.zip' -Force"
+    - name: Zip Output
+      run: |
+        $output_dir="WiiLayoutEditor\bin\$CONFIG"
+        $zip_file="WiiLayoutEditor.zip"
+        if (Test-Path $zip_file) { Remove-Item $zip_file }
+        Compress-Archive -Path "$output_dir\*" -DestinationPath $zip_file
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: WiiLayoutEditor-Build
-          path: WiiLayoutEditor-Build.zip
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: WiiLayoutEditor-Build
+        path: WiiLayoutEditor.zip
+
 
 
 
