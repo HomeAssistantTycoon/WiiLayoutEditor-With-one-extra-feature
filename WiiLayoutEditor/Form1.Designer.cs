@@ -35,6 +35,8 @@
 			this.menuItem5 = new System.Windows.Forms.MenuItem();
 			this.menuItem6 = new System.Windows.Forms.MenuItem();
 			this.menuItem7 = new System.Windows.Forms.MenuItem();
+	            this.menuItemExport = new System.Windows.Forms.MenuItem();
+	            this.menuItemExportSavePNG = new System.Windows.Forms.MenuItem();
 			this.menuItem11 = new System.Windows.Forms.MenuItem();
 			this.menuItem12 = new System.Windows.Forms.MenuItem();
 			this.menuItem2 = new System.Windows.Forms.MenuItem();
@@ -93,11 +95,12 @@
 			// 
 			this.menuItem1.Index = 0;
 			this.menuItem1.MenuItems.AddRange(new System.Windows.Forms.MenuItem[] {
-            this.menuItem5,
-            this.menuItem6,
-            this.menuItem7,
-            this.menuItem11,
-            this.menuItem12});
+			this.menuItem5,
+			this.menuItem6,
+			this.menuItem7,
+			this.menuItemExport,
+			this.menuItem11,
+			this.menuItem12});
 			this.menuItem1.Text = "File";
 			// 
 			// menuItem5
@@ -122,15 +125,28 @@
 			// 
 			// menuItem11
 			// 
-			this.menuItem11.Index = 3;
+			this.menuItem11.Index = 4;
 			this.menuItem11.Text = "-";
 			// 
 			// menuItem12
 			// 
 			this.vistaMenu1.SetImage(this.menuItem12, ((System.Drawing.Image)(resources.GetObject("menuItem12.Image"))));
-			this.menuItem12.Index = 4;
+			this.menuItem12.Index = 5;
 			this.menuItem12.Text = "Exit";
 			this.menuItem12.Click += new System.EventHandler(this.menuItem12_Click);
+			// 
+			// menuItemExport
+			// 
+			this.menuItemExport.Index = 3;
+			this.menuItemExport.MenuItems.AddRange(new System.Windows.Forms.MenuItem[] {
+			this.menuItemExportSavePNG});
+			this.menuItemExport.Text = "Export";
+			// 
+			// menuItemExportSavePNG
+			// 
+			this.menuItemExportSavePNG.Index = 0;
+			this.menuItemExportSavePNG.Text = "Save Rendered Layout as PNG";
+			this.menuItemExportSavePNG.Click += new System.EventHandler(this.menuExportSavePNG_Click);
 			// 
 			// menuItem2
 			// 
@@ -469,6 +485,8 @@
 		private System.Windows.Forms.MenuItem menuItem14;
 		private System.Windows.Forms.OpenFileDialog openFileDialog4;
 		private System.Windows.Forms.SaveFileDialog saveFileDialog1;
+		private System.Windows.Forms.MenuItem menuItemExport;
+		private System.Windows.Forms.MenuItem menuItemExportSavePNG;
 	}
 }
 

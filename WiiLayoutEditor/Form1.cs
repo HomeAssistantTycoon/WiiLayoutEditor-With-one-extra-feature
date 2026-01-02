@@ -489,6 +489,34 @@ namespace WiiLayoutEditor
 			Application.Exit();
 		}
 
+		private void menuExportSavePNG_Click(object sender, EventArgs e)
+		{
+			if (Layout == null)
+			{
+				MessageBox.Show("No layout loaded to export.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
+
+			using (SaveFileDialog sfd = new SaveFileDialog())
+			{
+				sfd.Filter = "PNG Image (*.png)|*.png";
+				sfd.DefaultExt = "png";
+				sfd.FileName = (openFileDialog1.FileName.Length > 0 ? Path.GetFileNameWithoutExtension(openFileDialog1.FileName) : "layout") + ".png";
+				if (sfd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+				{
+					Bitmap bmp = IO.Util.ScreenShot(simpleOpenGlControl1);
+					try
+					{
+						bmp.Save(sfd.FileName, ImageFormat.Png);
+					}
+					finally
+					{
+						bmp.Dispose();
+					}
+				}
+			}
+		}
+
 		private void menuItem14_Click(object sender, EventArgs e)
 		{
 			if (openFileDialog4.ShowDialog() == System.Windows.Forms.DialogResult.OK
