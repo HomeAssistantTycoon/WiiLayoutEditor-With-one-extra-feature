@@ -1,6 +1,5 @@
 name: Build WiiLayoutEditor
 
-# Manual trigger
 on:
   workflow_dispatch:
 
@@ -9,29 +8,27 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1. Checkout the repository
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Setup .NET 6 SDK
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.0.x'
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
 
-      # 3. Restore dependencies
-      - name: Restore dependencies
-        run: dotnet restore ./WiiLayoutEditor.sln
+      - name: Restore NuGet packages
+        run: nuget restore WiiLayoutEditor.sln
 
-      # 4. Build the solution
-      - name: Build solution
-        run: dotnet build ./WiiLayoutEditor.sln --configuration Release --no-restore
+      - name: Build WiiLayoutEditor (Release)
+        run: msbuild WiiLayoutEditor.sln /p:Configuration=Release /p:Platform="Any CPU"
 
-      # 5. Upload build output as artifact (new version)
-      - name: Publish artifact
+      - name: Zip build output
+        run: |
+          powershell -Command "Compress-Archive -Path 'WiiLayoutEditor\bin\Release\*' -DestinationPath 'WiiLayoutEditor-Build.zip' -Force"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: WiiLayoutEditor-Build
-          path: ./WiiLayoutEditor/bin/Release/
+          path: WiiLayoutEditor-Build.zip
+
 
 
