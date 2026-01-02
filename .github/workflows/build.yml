@@ -1,54 +1,77 @@
 name: Build WiiLayoutEditor
 
 on:
-  workflow_dispatch:   # Manual trigger
+  workflow_dispatch: # allows manual trigger
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1.1
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.0.x'
 
-    - name: Detect Solution Configurations
+    - name: Detect Solution Configuration
       id: config
+      shell: pwsh
       run: |
-        echo "Checking solution configurations..."
-        for cfg in Debug Release; do
-            for plat in "Any CPU" x86 x64; do
-                msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$cfg /p:Platform="$plat" /v:q > build_check.txt 2>&1 || true
-                if ! findstr /C:"error MSB4126" build_check.txt >nul; then
-                    echo "Valid configuration found: $cfg | $plat"
-                    echo "CONFIG=$cfg" >> $GITHUB_ENV
-                    echo "PLATFORM=$plat" >> $GITHUB_ENV
-                    exit 0
-                fi
-            done
-        done
-        echo "No valid configuration found, failing workflow."
-        exit 1
+        Write-Host "Detecting valid solution configuration..."
+        $found = $false
 
-    - name: Build WiiLayoutEditor
+        $configs = @("Debug", "Release")
+        $platforms = @("Any CPU", "x86", "x64")
+
+        foreach ($cfg in $configs) {
+            foreach ($plat in $platforms) {
+                Write-Host "Trying $cfg | $plat..."
+                msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$cfg /p:Platform="$plat" /v:q > build_check.txt 2>&1
+                $content = Get-Content build_check.txt
+                if (-not ($content -match "error MSB4126")) {
+                    Write-Host "Valid configuration found: $cfg | $plat"
+                    echo "CONFIG=$cfg" >> $env:GITHUB_ENV
+                    echo "PLATFORM=$plat" >> $env:GITHUB_ENV
+                    $found = $true
+                    break
+                }
+            }
+            if ($found) { break }
+        }
+
+        if (-not $found) {
+            Write-Error "No valid configuration found. Workflow cannot continue."
+            exit 1
+        }
+
+    - name: Build Solution
+      shell: pwsh
       run: |
-        echo "Building with $CONFIG | $PLATFORM..."
-        msbuild WiiLayoutEditor.sln /p:Configuration=$CONFIG /p:Platform="$PLATFORM" /t:Build /v:minimal
+        Write-Host "Building solution with $env:CONFIG | $env:PLATFORM..."
+        msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$env:CONFIG /p:Platform="$env:PLATFORM"
 
-    - name: Zip Output
+    - name: Package Build Artifact
+      shell: pwsh
       run: |
-        $output_dir="WiiLayoutEditor\bin\$CONFIG"
-        $zip_file="WiiLayoutEditor.zip"
-        if (Test-Path $zip_file) { Remove-Item $zip_file }
-        Compress-Archive -Path "$output_dir\*" -DestinationPath $zip_file
+        $outputDir = ".\WiiLayoutEditor\bin\$env:CONFIG"
+        if (-Not (Test-Path $outputDir)) {
+            Write-Error "Build output directory not found: $outputDir"
+            exit 1
+        }
+        $zipFile = "$(pwd)\WiiLayoutEditor-$env:CONFIG.zip"
+        Write-Host "Zipping build output to $zipFile"
+        Compress-Archive -Path "$outputDir\*" -DestinationPath $zipFile -Force
+        echo "ARTIFACT=$zipFile" >> $env:GITHUB_ENV
 
-    - name: Upload Artifact
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: WiiLayoutEditor-Build
-        path: WiiLayoutEditor.zip
+        path: ${{ env.ARTIFACT }}
+
 
 
 
