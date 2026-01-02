@@ -1,76 +1,43 @@
 name: Build WiiLayoutEditor
 
 on:
-  workflow_dispatch: # allows manual trigger
+  workflow_dispatch:  # manual trigger
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '6.0.x'
+      - name: Setup MSBuild path
+        id: msbuild
+        run: |
+          Write-Host "Locating MSBuild using vswhere..."
+          $vsPath = & 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe' -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsPath) { throw "MSBuild not found via vswhere!" }
+          $msbuildPath = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
+          Write-Host "MSBuild found at $msbuildPath"
+          echo "::set-output name=path::$msbuildPath"
 
-    - name: Detect Solution Configuration
-      id: config
-      shell: pwsh
-      run: |
-        Write-Host "Detecting valid solution configuration..."
-        $found = $false
+      - name: Build solution
+        run: |
+          $msbuild = "${{ steps.msbuild.outputs.path }}"
+          Write-Host "Building WiiLayoutEditor.sln using MSBuild..."
+          & $msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=Release /p:Platform="Any CPU"
 
-        $configs = @("Debug", "Release")
-        $platforms = @("Any CPU", "x86", "x64")
+      - name: List output files
+        run: |
+          Write-Host "Contents of Release folder:"
+          Get-ChildItem -Recurse .\WiiLayoutEditor\bin\Release
 
-        foreach ($cfg in $configs) {
-            foreach ($plat in $platforms) {
-                Write-Host "Trying $cfg | $plat..."
-                msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$cfg /p:Platform="$plat" /v:q > build_check.txt 2>&1
-                $content = Get-Content build_check.txt
-                if (-not ($content -match "error MSB4126")) {
-                    Write-Host "Valid configuration found: $cfg | $plat"
-                    echo "CONFIG=$cfg" >> $env:GITHUB_ENV
-                    echo "PLATFORM=$plat" >> $env:GITHUB_ENV
-                    $found = $true
-                    break
-                }
-            }
-            if ($found) { break }
-        }
+      - name: Upload Release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiiLayoutEditor-Build
+          path: WiiLayoutEditor\bin\Release
 
-        if (-not $found) {
-            Write-Error "No valid configuration found. Workflow cannot continue."
-            exit 1
-        }
-
-    - name: Build Solution
-      shell: pwsh
-      run: |
-        Write-Host "Building solution with $env:CONFIG | $env:PLATFORM..."
-        msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=$env:CONFIG /p:Platform="$env:PLATFORM"
-
-    - name: Package Build Artifact
-      shell: pwsh
-      run: |
-        $outputDir = ".\WiiLayoutEditor\bin\$env:CONFIG"
-        if (-Not (Test-Path $outputDir)) {
-            Write-Error "Build output directory not found: $outputDir"
-            exit 1
-        }
-        $zipFile = "$(pwd)\WiiLayoutEditor-$env:CONFIG.zip"
-        Write-Host "Zipping build output to $zipFile"
-        Compress-Archive -Path "$outputDir\*" -DestinationPath $zipFile -Force
-        echo "ARTIFACT=$zipFile" >> $env:GITHUB_ENV
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: WiiLayoutEditor-Build
-        path: ${{ env.ARTIFACT }}
 
 
 
