@@ -1,7 +1,7 @@
 name: Build WiiLayoutEditor
 
 on:
-  workflow_dispatch:  # manual trigger
+  workflow_dispatch:   # manual trigger
 
 jobs:
   build:
@@ -11,32 +11,60 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild path
-        id: msbuild
+      - name: Detect solution configurations
+        id: detect_config
+        shell: powershell
         run: |
-          Write-Host "Locating MSBuild using vswhere..."
-          $vsPath = & 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe' -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
-          if (-not $vsPath) { throw "MSBuild not found via vswhere!" }
-          $msbuildPath = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
-          Write-Host "MSBuild found at $msbuildPath"
-          echo "::set-output name=path::$msbuildPath"
+          $sln = "WiiLayoutEditor.sln"
+          Write-Host "Reading solution file..."
+          $slnContent = Get-Content $sln
+          
+          $configurations = @()
+          $platforms = @()
+          
+          foreach ($line in $slnContent) {
+              if ($line -match "GlobalSection\(SolutionConfigurationPlatforms\)") { $inConfig = $true }
+              if ($inConfig -and $line -match "EndGlobalSection") { $inConfig = $false }
+              if ($inConfig -and $line -match "^\s*(\S+)\|(\S+)\s*=") {
+                  $configurations += $matches[1]
+                  $platforms += $matches[2]
+              }
+          }
+
+          # pick the first valid configuration/platform
+          $Config = $configurations[0]
+          $Platform = $platforms[0]
+
+          Write-Host "Detected configuration: $Config | $Platform"
+          echo "config=$Config" >> $GITHUB_ENV
+          echo "platform=$Platform" >> $GITHUB_ENV
 
       - name: Build solution
+        shell: powershell
         run: |
-          $msbuild = "${{ steps.msbuild.outputs.path }}"
-          Write-Host "Building WiiLayoutEditor.sln using MSBuild..."
-          & $msbuild WiiLayoutEditor.sln /nologo /t:Build /p:Configuration=Release /p:Platform="Any CPU"
+          $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+          Write-Host "Building ${{ env.config }} | ${{ env.platform }}..."
+          & $msbuild "WiiLayoutEditor.sln" /nologo /t:Build /p:Configuration=${{ env.config }} /p:Platform="${{ env.platform }}"
 
-      - name: List output files
+      - name: Collect built executable
+        shell: powershell
         run: |
-          Write-Host "Contents of Release folder:"
-          Get-ChildItem -Recurse .\WiiLayoutEditor\bin\Release
+          # adjust path if output differs
+          $exe = "WiiLayoutEditor\bin\${{ env.config }}\WiiLayoutEditor.exe"
+          if (Test-Path $exe) {
+              Write-Host "Found built executable at $exe"
+              Copy-Item $exe -Destination "$env:GITHUB_WORKSPACE/WiiLayoutEditor.exe"
+          } else {
+              Write-Error "Built executable not found!"
+              exit 1
+          }
 
-      - name: Upload Release artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WiiLayoutEditor-Build
-          path: WiiLayoutEditor\bin\Release
+          name: WiiLayoutEditor
+          path: WiiLayoutEditor.exe
+
 
 
 
